@@ -212,3 +212,16 @@
         font-size: var(--text-xl);
     }
 }
+
+/* Lore button */
+.choice-card-lore {
+    border-style: dashed;
+    border-color: var(--border-medium);
+    background: rgba(244, 232, 193, 0.03);
+}
+
+.choice-card-lore:hover {
+    border-style: solid;
+    border-color: var(--parchment-dark);
+    background: rgba(244, 232, 193, 0.06);
+}

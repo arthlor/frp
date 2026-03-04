@@ -8,7 +8,7 @@ import {
 } from '../utils/supabase'
 import './Landing.css'
 
-export default function Landing({ onJoin }) {
+export default function Landing({ onJoin, onOpenLore }) {
     const [mode, setMode] = useState(null) // 'create' | 'join'
     const [sessionName, setSessionName] = useState('')
     const [sessionCode, setSessionCode] = useState('')
@@ -107,6 +107,14 @@ export default function Landing({ onJoin }) {
                             <span className="choice-icon">⚔️</span>
                             <span className="choice-title">Oturuma Katıl</span>
                             <span className="choice-desc">Arkadaşının paylaştığı kodla oturuma katıl</span>
+                        </button>
+
+                        <div className="choice-divider"><span>veya</span></div>
+
+                        <button className="choice-card choice-card-lore" onClick={onOpenLore} id="btn-open-lore">
+                            <span className="choice-icon">📜</span>
+                            <span className="choice-title">Oyun Rehberi</span>
+                            <span className="choice-desc">Dünya loru, soylar, yaratıklar ve hikaye hakkında bilgi edinin</span>
                         </button>
                     </div>
                 )}
