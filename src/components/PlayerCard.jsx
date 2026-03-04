@@ -26,7 +26,7 @@ export default function PlayerCard({ player, isMe, isDM, onHpChange, expanded, o
             style={{ '--bl-color': bloodline.color }}
             onClick={onToggle}
         >
-            {/* Compact View (always visible) */}
+            {/* Compact View */}
             <div className="pc-compact">
                 <div className="pc-avatar-area">
                     <span className="pc-avatar">{char.avatar}</span>
@@ -35,25 +35,15 @@ export default function PlayerCard({ player, isMe, isDM, onHpChange, expanded, o
                 <div className="pc-info">
                     <div className="pc-name-row">
                         <span className="pc-name">{char.name}</span>
-                        <span className="pc-bloodline-badge" style={{ color: bloodline.color }}>{bloodline.icon} {bloodline.name}</span>
+                        <span className="pc-bloodline-badge" style={{ color: bloodline.color }}>{bloodline.icon}</span>
                     </div>
                     <div className="pc-hp-row">
                         <div className="pc-hp-bar">
                             <div className="pc-hp-fill" style={{ width: `${hpPct}%`, backgroundColor: hpColor }} />
                         </div>
                         <span className="pc-hp-text" style={{ color: hpColor }}>{char.hp.current}/{char.hp.max}</span>
-                        <span className="pc-ac">🛡️{char.ac}</span>
                     </div>
-                    {/* Status Effects */}
-                    {char.statusEffects.length > 0 && (
-                        <div className="pc-effects">
-                            {char.statusEffects.map(e => (
-                                <span key={e} className="pc-effect-chip">{e}</span>
-                            ))}
-                        </div>
-                    )}
                 </div>
-                {/* HP buttons for own card or DM */}
                 {(isMe || isDM) && (
                     <div className="pc-hp-controls">
                         <button className="hp-btn hp-minus" onClick={(e) => { e.stopPropagation(); onHpChange(-1) }}>−</button>
@@ -62,49 +52,20 @@ export default function PlayerCard({ player, isMe, isDM, onHpChange, expanded, o
                 )}
             </div>
 
-            {/* Expanded View (click to toggle) */}
+            {/* Expanded: just stats + power */}
             {expanded && (
                 <div className="pc-expanded animate-fade-in" onClick={e => e.stopPropagation()}>
                     <div className="pc-stats-grid">
-                        {Object.entries(char.stats).map(([key, val]) => {
-                            const info = STAT_NAMES[key]
-                            const isPrimary = key === bloodline.primaryStat
-                            return (
-                                <div key={key} className={`pc-stat ${isPrimary ? 'primary' : ''}`}>
-                                    <span className="pc-stat-icon">{info.icon}</span>
-                                    <span className="pc-stat-mod">{formatModifier(val)}</span>
-                                    <span className="pc-stat-name">{info.abbrev}</span>
-                                </div>
-                            )
-                        })}
-                    </div>
-
-                    <div className="pc-powers">
-                        <div className="pc-section-title">İlahi Güçler</div>
-                        {bloodline.domainPowers.filter(p => char.domainPowers.includes(p.name)).map(p => (
-                            <div key={p.name} className="pc-power">
-                                <strong>{p.name}</strong>: {p.description}
+                        {Object.entries(char.stats).map(([key, val]) => (
+                            <div key={key} className="pc-stat">
+                                <span className="pc-stat-mod">{formatModifier(val)}</span>
+                                <span className="pc-stat-name">{STAT_NAMES[key].abbrev}</span>
                             </div>
                         ))}
                     </div>
-
-                    {char.flaws.length > 0 && (
-                        <div className="pc-flaws">
-                            <div className="pc-section-title">Kusurlar</div>
-                            {char.flaws.map((f, i) => (
-                                <span key={i} className="pc-flaw-chip">⚠ {f}</span>
-                            ))}
-                        </div>
-                    )}
-
-                    {char.inventory.length > 0 && (
-                        <div className="pc-inventory">
-                            <div className="pc-section-title">Envanter</div>
-                            {char.inventory.map((item, i) => (
-                                <span key={i} className="pc-inv-item">{item.name}{item.quantity > 1 ? ` x${item.quantity}` : ''}</span>
-                            ))}
-                        </div>
-                    )}
+                    <div className="pc-power text-xs">
+                        ⚡ {bloodline.domainPowers[0].name}
+                    </div>
                 </div>
             )}
         </div>

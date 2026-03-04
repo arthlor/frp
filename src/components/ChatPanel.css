@@ -1,4 +1,4 @@
-/* Chat Panel */
+/* Chat Panel — Simplified */
 .chat-panel {
     display: flex;
     flex-direction: column;
@@ -30,7 +30,6 @@
     padding: var(--space-xl);
 }
 
-/* Message types */
 .chat-msg {
     padding: var(--space-xs) var(--space-sm);
     border-radius: var(--radius-sm);
@@ -38,18 +37,8 @@
     animation: fadeIn 0.2s ease;
 }
 
-.msg-ooc {
+.msg-chat {
     background: var(--bg-tertiary);
-}
-
-.msg-ic {
-    background: rgba(212, 168, 67, 0.06);
-    border-left: 2px solid var(--gold-dark);
-    font-style: italic;
-}
-
-.msg-ic .msg-text {
-    color: var(--parchment-dark);
 }
 
 .msg-narration .msg-narrator {
@@ -103,33 +92,17 @@
     gap: var(--space-xs);
 }
 
-.chat-type-selector {
+.narration-toggle {
     display: flex;
-    gap: 2px;
-}
-
-.type-btn {
-    padding: 2px var(--space-sm);
-    background: var(--bg-tertiary);
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    align-items: center;
+    gap: var(--space-xs);
     font-size: var(--text-xs);
     color: var(--text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast);
-    font-family: var(--font-heading);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 
-.type-btn:hover {
-    color: var(--text-primary);
-}
-
-.type-btn.active {
-    background: var(--bg-card);
-    border-color: var(--border-medium);
-    color: var(--gold);
+.narration-toggle input {
+    accent-color: var(--gold);
 }
 
 .chat-input-row {

@@ -12,17 +12,6 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
         onUpdate({ hp: { ...character.hp, current: newHp } })
     }
 
-    const toggleStatus = (effect) => {
-        const has = character.statusEffects.includes(effect)
-        onUpdate({
-            statusEffects: has
-                ? character.statusEffects.filter(e => e !== effect)
-                : [...character.statusEffects, effect]
-        })
-    }
-
-    const STATUS_OPTIONS = ['Charmed', 'Stunned', 'Blinded', 'Poisoned', 'Frightened', 'Prone', 'Invisible']
-
     return (
         <div className="char-sheet">
             {/* Header */}
@@ -33,9 +22,6 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
                     <div className="cs-bloodline badge badge-gold">
                         {bloodline.icon} {bloodline.name}
                     </div>
-                    <div className="cs-archetype text-muted text-xs">
-                        {character.modernArchetype || bloodline.modernArchetype}
-                    </div>
                 </div>
                 <div className="cs-level">
                     <span className="level-num">{character.level}</span>
@@ -43,13 +29,11 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
                 </div>
             </div>
 
-            {/* HP Bar */}
+            {/* HP */}
             <div className="cs-hp-section">
                 <div className="hp-info">
                     <span className="hp-label">HP</span>
-                    <span className="hp-value" style={{ color: hpColor }}>
-                        {character.hp.current}/{character.hp.max}
-                    </span>
+                    <span className="hp-value" style={{ color: hpColor }}>{character.hp.current}/{character.hp.max}</span>
                     <span className="hp-ac">🛡️ AC {character.ac}</span>
                 </div>
                 <div className="hp-bar">
@@ -69,10 +53,8 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
             <div className="cs-stats">
                 {Object.entries(character.stats).map(([key, val]) => {
                     const info = STAT_NAMES[key]
-                    const isPrimary = key === bloodline.primaryStat
-                    const isSecondary = key === bloodline.secondaryStat
                     return (
-                        <div key={key} className={`stat-block ${isPrimary ? 'primary' : isSecondary ? 'secondary' : ''}`}>
+                        <div key={key} className="stat-block">
                             <span className="stat-icon">{info.icon}</span>
                             <span className="stat-mod">{formatModifier(val)}</span>
                             <span className="stat-val">{val}</span>
@@ -84,67 +66,13 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
 
             <hr className="divider" />
 
-            {/* Domain Powers */}
+            {/* Power */}
             <div className="cs-section">
-                <h4>⚡ İlahi Güçler</h4>
-                <div className="powers-list">
-                    {bloodline.domainPowers.map(power => {
-                        const active = character.domainPowers.includes(power.name)
-                        const locked = power.level > character.level
-                        return (
-                            <div key={power.name} className={`power-item ${active ? 'active' : ''} ${locked ? 'locked' : ''}`}>
-                                <div className="power-header">
-                                    <span className="power-name">{power.name}</span>
-                                    <span className="power-level badge badge-gold">Lv {power.level}</span>
-                                </div>
-                                <p className="power-desc text-sm">{power.description}</p>
-                            </div>
-                        )
-                    })}
+                <h4>⚡ İlahi Güç</h4>
+                <div className="power-item active">
+                    <div className="power-name">{bloodline.domainPowers[0].name}</div>
+                    <p className="power-desc text-sm">{bloodline.domainPowers[0].description}</p>
                 </div>
-            </div>
-
-            {/* Flaws */}
-            <div className="cs-section">
-                <h4>⚠️ Kusurlar</h4>
-                <ul className="flaws-list">
-                    {character.flaws.map((flaw, i) => (
-                        <li key={i} className="text-sm text-muted">{flaw}</li>
-                    ))}
-                </ul>
-            </div>
-
-            {/* Status Effects */}
-            <div className="cs-section">
-                <h4>🔮 Durum Efektleri</h4>
-                <div className="status-grid">
-                    {STATUS_OPTIONS.map(effect => (
-                        <button
-                            key={effect}
-                            className={`status-chip ${character.statusEffects.includes(effect) ? 'active' : ''}`}
-                            onClick={() => toggleStatus(effect)}
-                        >
-                            {effect}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Inventory */}
-            <div className="cs-section">
-                <h4>🎒 Envanter</h4>
-                {character.inventory.length === 0 ? (
-                    <p className="text-muted text-sm">Boş</p>
-                ) : (
-                    <ul className="inventory-list">
-                        {character.inventory.map((item, i) => (
-                            <li key={i} className="inv-item">
-                                <span className="inv-name">{item.name}</span>
-                                {item.quantity > 1 && <span className="inv-qty">x{item.quantity}</span>}
-                            </li>
-                        ))}
-                    </ul>
-                )}
             </div>
 
             {/* Notes */}
@@ -154,7 +82,7 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
                     className="input cs-notes"
                     value={character.notes}
                     onChange={e => onUpdate({ notes: e.target.value })}
-                    placeholder="Arka plan, oturum notları..."
+                    placeholder="Oturum notları..."
                     rows={3}
                 />
             </div>

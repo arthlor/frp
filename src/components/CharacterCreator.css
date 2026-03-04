@@ -1,4 +1,4 @@
-/* Character Creator */
+/* Character Creator — Simplified */
 .creator-overlay {
     min-height: 100vh;
     display: flex;
@@ -11,13 +11,12 @@
 
 .creator-container {
     width: 100%;
-    max-width: 700px;
+    max-width: 640px;
     display: flex;
     flex-direction: column;
     gap: var(--space-xl);
 }
 
-/* Progress */
 .creator-progress {
     display: flex;
     justify-content: center;
@@ -50,7 +49,6 @@
     box-shadow: var(--shadow-gold);
 }
 
-/* Steps */
 .creator-step {
     display: flex;
     flex-direction: column;
@@ -72,7 +70,7 @@
 /* Bloodline Grid */
 .bloodline-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: var(--space-sm);
 }
 
@@ -119,106 +117,19 @@
     color: var(--text-muted);
 }
 
-.bl-bonus {
-    color: var(--gold);
-    font-weight: 500;
-}
-
 .bl-preview {
     margin-top: var(--space-sm);
 }
 
+.bl-preview-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
 .bl-power {
     margin-top: var(--space-sm);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-}
-
-/* Stat Allocator */
-.stat-allocator {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-}
-
-.alloc-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-card);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
-}
-
-.alloc-icon {
-    font-size: 1.2rem;
-    width: 28px;
-    text-align: center;
-}
-
-.alloc-name {
-    font-family: var(--font-heading);
-    font-size: var(--text-sm);
-    min-width: 90px;
-    color: var(--text-heading);
-}
-
-.alloc-val {
-    font-family: var(--font-heading);
-    font-size: var(--text-lg);
-    font-weight: 700;
-    color: var(--text-primary);
-    min-width: 30px;
-    text-align: center;
-}
-
-.alloc-bonus {
-    font-size: var(--text-sm);
-    font-weight: 600;
-}
-
-.alloc-final {
-    margin-left: auto;
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    font-family: monospace;
-}
-
-/* Review */
-.review-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-}
-
-.review-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-}
-
-.review-avatar {
-    font-size: 2.5rem;
-}
-
-.review-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-sm);
-}
-
-.review-stat {
-    display: flex;
-    justify-content: space-between;
-    padding: var(--space-xs) var(--space-sm);
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-sm);
-}
-
-.review-power {
-    font-size: var(--text-sm);
     color: var(--text-secondary);
     padding: var(--space-sm);
     background: rgba(212, 168, 67, 0.05);
@@ -229,9 +140,5 @@
 @media (max-width: 640px) {
     .bloodline-grid {
         grid-template-columns: repeat(3, 1fr);
-    }
-
-    .review-stats {
-        grid-template-columns: repeat(2, 1fr);
     }
 }

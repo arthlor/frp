@@ -3,7 +3,7 @@ import './ChatPanel.css'
 
 export default function ChatPanel({ messages, onSend, isDM, playerName }) {
     const [text, setText] = useState('')
-    const [msgType, setMsgType] = useState('ooc')
+    const [isNarration, setIsNarration] = useState(false)
     const listRef = useRef(null)
 
     useEffect(() => {
@@ -15,15 +15,12 @@ export default function ChatPanel({ messages, onSend, isDM, playerName }) {
     const handleSubmit = (e) => {
         e.preventDefault()
         if (!text.trim()) return
-        onSend({ message: text.trim(), type: msgType })
+        onSend({
+            message: text.trim(),
+            type: isDM && isNarration ? 'narration' : 'chat',
+        })
         setText('')
     }
-
-    const typeOptions = [
-        { value: 'ooc', label: 'OOC', title: 'Karakter dışı' },
-        { value: 'ic', label: 'IC', title: 'Karakter içi' },
-    ]
-    if (isDM) typeOptions.push({ value: 'narration', label: 'Anlatı', title: 'DM Anlatısı' })
 
     return (
         <div className="chat-panel">
@@ -50,31 +47,22 @@ export default function ChatPanel({ messages, onSend, isDM, playerName }) {
                     </div>
                 ))}
                 {messages.length === 0 && (
-                    <p className="chat-empty text-muted text-sm">
-                        Henüz mesaj yok. Oyuna başla!
-                    </p>
+                    <p className="chat-empty text-muted text-sm">Henüz mesaj yok</p>
                 )}
             </div>
 
             <form className="chat-input" onSubmit={handleSubmit}>
-                <div className="chat-type-selector">
-                    {typeOptions.map(opt => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            className={`type-btn ${msgType === opt.value ? 'active' : ''}`}
-                            onClick={() => setMsgType(opt.value)}
-                            title={opt.title}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
+                {isDM && (
+                    <label className="narration-toggle">
+                        <input type="checkbox" checked={isNarration} onChange={e => setIsNarration(e.target.checked)} />
+                        <span>📜 Anlatı</span>
+                    </label>
+                )}
                 <div className="chat-input-row">
                     <input
                         className="input"
                         type="text"
-                        placeholder={msgType === 'ic' ? 'Karakter olarak konuş...' : msgType === 'narration' ? 'Sahneyi anlat...' : 'Mesaj yaz...'}
+                        placeholder={isNarration ? 'Sahneyi anlat...' : 'Mesaj yaz...'}
                         value={text}
                         onChange={e => setText(e.target.value)}
                         maxLength={500}

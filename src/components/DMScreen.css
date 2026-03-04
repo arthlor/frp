@@ -1,4 +1,4 @@
-/* DM Screen Overlay */
+/* DM Screen — Simplified */
 .dm-overlay {
     position: fixed;
     inset: 0;
@@ -13,7 +13,7 @@
 
 .dm-screen {
     width: 100%;
-    max-width: 800px;
+    max-width: 700px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
@@ -32,12 +32,16 @@
     margin: 0;
 }
 
+.dm-header-actions {
+    display: flex;
+    gap: var(--space-xs);
+}
+
 /* Tabs */
 .dm-tabs {
     display: flex;
     gap: 2px;
     margin-top: var(--space-md);
-    overflow-x: auto;
 }
 
 .tab-btn {
@@ -64,161 +68,96 @@
     color: var(--gold);
 }
 
-/* Content */
 .dm-content {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-md) 0;
 }
 
-/* Bestiary */
-.bestiary-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-}
-
-.monster-block {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-
-.monster-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
-    cursor: pointer;
-    list-style: none;
-}
-
-.monster-header::-webkit-details-marker {
-    display: none;
-}
-
-.mon-icon {
-    font-size: 1.3rem;
-}
-
-.mon-name {
-    font-family: var(--font-heading);
-    font-size: var(--text-sm);
-    color: var(--text-heading);
-    flex: 1;
-}
-
-.monster-stats {
-    padding: var(--space-md);
-    border-top: 1px solid var(--border-subtle);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    font-size: var(--text-sm);
-}
-
-.mon-stat-row {
-    display: flex;
-    gap: var(--space-lg);
-    color: var(--text-secondary);
-}
-
-.mon-attacks h5,
-.mon-abilities h5,
-.mon-weak h5 {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: var(--space-xs);
-}
-
-.atk-item {
-    margin-bottom: var(--space-xs);
-    color: var(--text-secondary);
-}
-
-.monster-stats ul {
-    list-style: none;
-    padding: 0;
-}
-
-.monster-stats li {
-    padding: 2px 0;
-    color: var(--text-secondary);
-}
-
-.monster-stats li::before {
-    content: '• ';
-    color: var(--text-muted);
-}
-
-/* NPC Manager */
-.npc-manager {
+/* Creatures Tab */
+.creatures-tab {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
 }
 
-.npc-add-form {
-    display: flex;
-    gap: var(--space-xs);
-    align-items: center;
-}
-
-.npc-add-form .input {
-    flex: 1;
+.creatures-tab h4 {
     font-size: var(--text-sm);
-    padding: var(--space-xs) var(--space-sm);
+    color: var(--text-secondary);
+    margin: 0;
 }
 
-.npc-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-}
-
-.npc-card {
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+.active-npcs {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
 }
 
-.npc-top {
+.npc-row {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
 }
 
 .npc-icon {
-    font-size: 1.2rem;
+    font-size: 1rem;
 }
 
 .npc-name {
     font-family: var(--font-heading);
     font-size: var(--text-sm);
+    flex: 1;
     color: var(--text-heading);
+}
+
+.npc-hp-mini {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 80px;
+}
+
+.npc-hp-mini .hp-bar {
     flex: 1;
 }
 
-.npc-hp {
-    display: flex;
-    align-items: center;
+.bestiary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: var(--space-sm);
 }
 
-.npc-hp .hp-bar {
-    flex: 1;
+.bestiary-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    font-family: inherit;
 }
 
-.npc-hp-btns {
-    display: flex;
-    gap: var(--space-xs);
+.bestiary-btn:hover {
+    border-color: var(--crimson-light);
+    transform: translateY(-1px);
+}
+
+.bestiary-btn .mon-icon {
+    font-size: 1.5rem;
+}
+
+.bestiary-btn .mon-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
 }
 
 /* Narration */
@@ -230,21 +169,7 @@
 
 .narration-input {
     resize: vertical;
-    min-height: 100px;
-    font-size: var(--text-base);
-}
-
-/* Private Rolls */
-.private-rolls-tab {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-}
-
-.quick-rolls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
+    min-height: 80px;
 }
 
 /* Combat */
