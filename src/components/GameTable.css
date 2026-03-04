@@ -1,0 +1,279 @@
+/* GameTable — Virtual Tabletop Layout */
+.game-table {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+.game-table-empty {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+}
+
+.empty-card {
+    text-align: center;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    align-items: center;
+}
+
+/* Header */
+.game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+    z-index: var(--z-dropdown);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.header-session {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.session-name {
+    font-size: var(--text-sm);
+    color: var(--text-heading);
+    white-space: nowrap;
+}
+
+.session-code-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 2px var(--space-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: monospace;
+    font-size: var(--text-sm);
+    color: var(--gold);
+    transition: all var(--transition-fast);
+}
+
+.session-code-btn:hover {
+    border-color: var(--gold);
+    background: var(--bg-card);
+}
+
+.code-copy {
+    font-size: var(--text-xs);
+}
+
+.connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--crimson-light);
+    flex-shrink: 0;
+}
+
+.connection-dot.connected {
+    background: var(--emerald-light);
+    box-shadow: 0 0 6px var(--emerald-light);
+}
+
+.connection-dot.connecting {
+    background: var(--gold);
+    animation: pulse 1.5s ease infinite;
+}
+
+.header-center {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.player-count {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-family: var(--font-heading);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.header-right .btn.active {
+    background: var(--bg-card);
+    border-color: var(--border-medium);
+    color: var(--gold);
+}
+
+/* Main Content */
+.game-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* Virtual Table Area */
+.virtual-table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: var(--space-md);
+    gap: var(--space-md);
+}
+
+/* Table Surface — center area with dice and ornaments */
+.table-surface {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-xl);
+    background:
+        radial-gradient(ellipse at center, rgba(212, 168, 67, 0.04) 0%, transparent 60%),
+        var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    position: relative;
+    min-height: 200px;
+}
+
+.table-ornament {
+    font-size: 1.5rem;
+    opacity: 0.3;
+    animation: float 4s ease-in-out infinite;
+}
+
+.table-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--gold-dark);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.4;
+}
+
+/* Player Cards Grid — seats around the table */
+.table-seats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-sm);
+}
+
+.seat-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    border: 1px dashed var(--border-subtle);
+    border-radius: var(--radius-lg);
+    opacity: 0.3;
+}
+
+.seat-empty-icon {
+    font-size: 1.2rem;
+}
+
+.seat-empty-text {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+}
+
+/* Chat Panel — right side */
+.panel-chat {
+    width: 320px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Character Sheet Slide-over */
+.sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: var(--z-overlay);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.sheet-panel {
+    width: 360px;
+    max-width: 90vw;
+    height: 100%;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-medium);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sheet-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.sheet-panel-header h3 {
+    margin: 0;
+    font-size: var(--text-md);
+}
+
+.sheet-panel-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .game-content {
+        flex-direction: column;
+    }
+
+    .panel-chat {
+        width: 100%;
+        max-height: 35vh;
+        border-left: none;
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    .table-seats {
+        grid-template-columns: 1fr;
+    }
+
+    .session-name {
+        display: none;
+    }
+}
+
+@media (max-width: 1024px) {
+    .panel-chat {
+        width: 280px;
+    }
+
+    .table-seats {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+}

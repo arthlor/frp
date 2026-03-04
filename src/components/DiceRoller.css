@@ -1,0 +1,210 @@
+/* Dice Roller — d20 Only */
+.dice-roller {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+}
+
+/* Result */
+.dice-result {
+    text-align: center;
+    padding: var(--space-md) var(--space-xl);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 240px;
+    transition: all var(--transition-base);
+}
+
+.dice-result.rolling {
+    animation: diceRoll 0.6s ease;
+}
+
+.dice-result.critical-hit {
+    border-color: var(--gold);
+    box-shadow: 0 0 30px rgba(212, 168, 67, 0.4);
+    background: rgba(212, 168, 67, 0.08);
+}
+
+.dice-result.critical-fail {
+    border-color: var(--crimson-light);
+    box-shadow: 0 0 30px rgba(192, 57, 43, 0.4);
+    background: rgba(139, 37, 0, 0.08);
+}
+
+.result-total {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--gold-light);
+    line-height: 1;
+}
+
+.result-detail {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-top: var(--space-xs);
+    font-family: monospace;
+}
+
+.crit-text {
+    margin-top: var(--space-xs);
+    font-family: var(--font-heading);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.crit-success {
+    color: var(--gold-light);
+}
+
+.crit-fail {
+    color: var(--crimson-light);
+}
+
+/* d20 Button */
+.d20-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 2px solid var(--gold-dark);
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-tertiary));
+    cursor: pointer;
+    transition: all var(--transition-base);
+    justify-content: center;
+    color: var(--text-primary);
+}
+
+.d20-btn:hover {
+    border-color: var(--gold);
+    box-shadow: 0 0 30px var(--gold-glow);
+    transform: scale(1.08);
+}
+
+.d20-btn:active {
+    transform: scale(0.95);
+}
+
+.d20-icon {
+    font-size: 2rem;
+}
+
+.d20-label {
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--gold);
+}
+
+/* Row */
+.dice-row {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* Modifier */
+.dice-modifier {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.mod-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.mod-value {
+    font-family: monospace;
+    font-size: var(--text-md);
+    color: var(--gold);
+    min-width: 32px;
+    text-align: center;
+    font-weight: 700;
+}
+
+/* Private Toggle */
+.private-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.private-toggle input {
+    accent-color: var(--gold);
+}
+
+/* History */
+.dice-history {
+    width: 100%;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 3px var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    border-left: 2px solid transparent;
+}
+
+.history-entry.critical-hit {
+    border-left-color: var(--gold);
+}
+
+.history-entry.critical-fail {
+    border-left-color: var(--crimson-light);
+}
+
+.history-entry.private {
+    opacity: 0.5;
+}
+
+.hist-name {
+    color: var(--text-muted);
+    min-width: 50px;
+    font-weight: 500;
+}
+
+.hist-formula {
+    color: var(--text-muted);
+    font-family: monospace;
+    flex: 1;
+}
+
+.hist-nat {
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.hist-result {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 24px;
+    text-align: right;
+}
+
+.hist-private {
+    font-size: 9px;
+}

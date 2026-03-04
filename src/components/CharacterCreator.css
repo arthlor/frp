@@ -1,0 +1,237 @@
+/* Character Creator */
+.creator-overlay {
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-xl);
+    background: var(--bg-primary);
+    overflow-y: auto;
+}
+
+.creator-container {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+/* Progress */
+.creator-progress {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+}
+
+.progress-step {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-subtle);
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    transition: all var(--transition-base);
+}
+
+.progress-step.active {
+    border-color: var(--gold-dark);
+    color: var(--gold);
+}
+
+.progress-step.current {
+    border-color: var(--gold);
+    background: rgba(212, 168, 67, 0.1);
+    box-shadow: var(--shadow-gold);
+}
+
+/* Steps */
+.creator-step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.creator-step h2 {
+    text-align: center;
+    font-size: var(--text-2xl);
+}
+
+.creator-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-md);
+}
+
+/* Bloodline Grid */
+.bloodline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-sm);
+}
+
+.bloodline-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: var(--space-md) var(--space-sm);
+    background: var(--bg-card);
+    border: 2px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    color: var(--text-primary);
+    font-family: inherit;
+    text-align: center;
+}
+
+.bloodline-card:hover {
+    border-color: var(--bl-color);
+    transform: translateY(-2px);
+    box-shadow: 0 0 15px color-mix(in srgb, var(--bl-color) 20%, transparent);
+}
+
+.bloodline-card.selected {
+    border-color: var(--bl-color);
+    background: color-mix(in srgb, var(--bl-color) 5%, var(--bg-card));
+    box-shadow: 0 0 20px color-mix(in srgb, var(--bl-color) 25%, transparent);
+}
+
+.bl-icon {
+    font-size: 1.8rem;
+}
+
+.bl-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-heading);
+}
+
+.bl-title {
+    color: var(--text-muted);
+}
+
+.bl-bonus {
+    color: var(--gold);
+    font-weight: 500;
+}
+
+.bl-preview {
+    margin-top: var(--space-sm);
+}
+
+.bl-power {
+    margin-top: var(--space-sm);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+/* Stat Allocator */
+.stat-allocator {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.alloc-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.alloc-icon {
+    font-size: 1.2rem;
+    width: 28px;
+    text-align: center;
+}
+
+.alloc-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    min-width: 90px;
+    color: var(--text-heading);
+}
+
+.alloc-val {
+    font-family: var(--font-heading);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+    min-width: 30px;
+    text-align: center;
+}
+
+.alloc-bonus {
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.alloc-final {
+    margin-left: auto;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+/* Review */
+.review-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.review-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.review-avatar {
+    font-size: 2.5rem;
+}
+
+.review-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+}
+
+.review-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+}
+
+.review-power {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    padding: var(--space-sm);
+    background: rgba(212, 168, 67, 0.05);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+@media (max-width: 640px) {
+    .bloodline-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .review-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

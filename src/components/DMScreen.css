@@ -1,0 +1,272 @@
+/* DM Screen Overlay */
+.dm-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-overlay);
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-xl);
+    overflow-y: auto;
+}
+
+.dm-screen {
+    width: 100%;
+    max-width: 800px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.dm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.dm-header h3 {
+    margin: 0;
+}
+
+/* Tabs */
+.dm-tabs {
+    display: flex;
+    gap: 2px;
+    margin-top: var(--space-md);
+    overflow-x: auto;
+}
+
+.tab-btn {
+    padding: var(--space-xs) var(--space-md);
+    background: var(--bg-tertiary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: var(--font-heading);
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    background: var(--bg-secondary);
+    border-color: var(--border-medium);
+    border-bottom-color: transparent;
+    color: var(--gold);
+}
+
+/* Content */
+.dm-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md) 0;
+}
+
+/* Bestiary */
+.bestiary-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.monster-block {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.monster-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    list-style: none;
+}
+
+.monster-header::-webkit-details-marker {
+    display: none;
+}
+
+.mon-icon {
+    font-size: 1.3rem;
+}
+
+.mon-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    color: var(--text-heading);
+    flex: 1;
+}
+
+.monster-stats {
+    padding: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    font-size: var(--text-sm);
+}
+
+.mon-stat-row {
+    display: flex;
+    gap: var(--space-lg);
+    color: var(--text-secondary);
+}
+
+.mon-attacks h5,
+.mon-abilities h5,
+.mon-weak h5 {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-xs);
+}
+
+.atk-item {
+    margin-bottom: var(--space-xs);
+    color: var(--text-secondary);
+}
+
+.monster-stats ul {
+    list-style: none;
+    padding: 0;
+}
+
+.monster-stats li {
+    padding: 2px 0;
+    color: var(--text-secondary);
+}
+
+.monster-stats li::before {
+    content: '• ';
+    color: var(--text-muted);
+}
+
+/* NPC Manager */
+.npc-manager {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.npc-add-form {
+    display: flex;
+    gap: var(--space-xs);
+    align-items: center;
+}
+
+.npc-add-form .input {
+    flex: 1;
+    font-size: var(--text-sm);
+    padding: var(--space-xs) var(--space-sm);
+}
+
+.npc-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.npc-card {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.npc-top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.npc-icon {
+    font-size: 1.2rem;
+}
+
+.npc-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    color: var(--text-heading);
+    flex: 1;
+}
+
+.npc-hp {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.npc-hp .hp-bar {
+    flex: 1;
+}
+
+.npc-hp-btns {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+/* Narration */
+.narration-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.narration-input {
+    resize: vertical;
+    min-height: 100px;
+    font-size: var(--text-base);
+}
+
+/* Private Rolls */
+.private-rolls-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.quick-rolls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+/* Combat */
+.combat-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    align-items: center;
+    padding: var(--space-xl);
+}
+
+.combat-start {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    align-items: center;
+}
+
+.combat-active {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    align-items: center;
+}
