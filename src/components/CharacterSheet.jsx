@@ -1,7 +1,7 @@
-import { BLOODLINES, STAT_NAMES, formatModifier } from '../data/bloodlines'
+import { STAT_NAMES, formatModifier } from '../data/bloodlines'
 import './CharacterSheet.css'
 
-export default function CharacterSheet({ character, onUpdate, bloodline }) {
+export default function CharacterSheet({ character, onUpdate, bloodline, onStatCheck }) {
     if (!character || !bloodline) return null
 
     const hpPct = Math.max(0, (character.hp.current / character.hp.max) * 100)
@@ -14,7 +14,6 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
 
     return (
         <div className="char-sheet">
-            {/* Header */}
             <div className="cs-header" style={{ borderColor: bloodline.color }}>
                 <div className="cs-avatar">{character.avatar}</div>
                 <div className="cs-identity">
@@ -29,12 +28,11 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
                 </div>
             </div>
 
-            {/* HP */}
             <div className="cs-hp-section">
                 <div className="hp-info">
-                    <span className="hp-label">HP</span>
+                    <span className="hp-label">Can (HP)</span>
                     <span className="hp-value" style={{ color: hpColor }}>{character.hp.current}/{character.hp.max}</span>
-                    <span className="hp-ac">🛡️ AC {character.ac}</span>
+                    <span className="hp-ac">🛡️ <abbr className="glossary-term" title="Zırh (AC): Sana vurmanın ne kadar zor olduğunu gösterir.">Zırh (AC)</abbr> {character.ac}</span>
                 </div>
                 <div className="hp-bar">
                     <div className="hp-fill" style={{ width: `${hpPct}%`, backgroundColor: hpColor }} />
@@ -49,24 +47,29 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
 
             <hr className="divider" />
 
-            {/* Stats */}
             <div className="cs-stats">
                 {Object.entries(character.stats).map(([key, val]) => {
                     const info = STAT_NAMES[key]
                     return (
-                        <div key={key} className="stat-block">
+                        <button
+                            key={key}
+                            type="button"
+                            className="stat-block stat-clickable"
+                            onClick={() => onStatCheck?.(key, val)}
+                            title={`${info.name} kontrolü için tıkla`}
+                        >
                             <span className="stat-icon">{info.icon}</span>
                             <span className="stat-mod">{formatModifier(val)}</span>
                             <span className="stat-val">{val}</span>
                             <span className="stat-name">{info.abbrev}</span>
-                        </div>
+                        </button>
                     )
                 })}
             </div>
+            <p className="text-xs text-muted">İpucu: Bir stata tıklayarak hızlı kontrol zarı atabilirsin.</p>
 
             <hr className="divider" />
 
-            {/* Power */}
             <div className="cs-section">
                 <h4>⚡ İlahi Güç</h4>
                 <div className="power-item active">
@@ -75,7 +78,6 @@ export default function CharacterSheet({ character, onUpdate, bloodline }) {
                 </div>
             </div>
 
-            {/* Notes */}
             <div className="cs-section">
                 <h4>📝 Notlar</h4>
                 <textarea

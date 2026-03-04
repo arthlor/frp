@@ -76,6 +76,41 @@
     letter-spacing: 0.05em;
 }
 
+.lore-glossary {
+    margin-bottom: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.lore-glossary h3 {
+    font-size: var(--text-md);
+    margin: 0;
+}
+
+.glossary-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+}
+
+.glossary-pill {
+    border: 1px dashed var(--border-medium);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: var(--radius-full);
+    padding: 3px var(--space-sm);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.glossary-pill:hover,
+.glossary-pill.active {
+    border-color: var(--gold);
+    color: var(--gold-light);
+}
+
 /* Tab Navigation */
 .lore-tabs {
     display: flex;

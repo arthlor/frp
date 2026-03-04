@@ -1,26 +1,24 @@
-import { useState } from 'react'
 import { rollD20 } from '../utils/dice'
 import './InitiativeTracker.css'
 
-export default function InitiativeTracker({ combatState, onUpdate, isDM, players }) {
+export default function InitiativeTracker({
+    combatState,
+    onUpdate,
+    isDM,
+    players,
+    onTurnAdvance,
+    onPracticeTurnEnd,
+}) {
     if (!combatState?.isActive) return null
 
     const { round, turnIndex, initiative } = combatState
+    const currentTurn = initiative[turnIndex]
 
     const handleRollInitiative = (idx) => {
         if (!isDM) return
         const result = rollD20()
         const updated = [...initiative]
         updated[idx] = { ...updated[idx], roll: result.total }
-        // Re-sort by roll descending
-        updated.sort((a, b) => b.roll - a.roll)
-        onUpdate({ ...combatState, initiative: updated, turnIndex: 0 })
-    }
-
-    const handleSetRoll = (idx, val) => {
-        if (!isDM) return
-        const updated = [...initiative]
-        updated[idx] = { ...updated[idx], roll: val }
         updated.sort((a, b) => b.roll - a.roll)
         onUpdate({ ...combatState, initiative: updated, turnIndex: 0 })
     }
@@ -33,6 +31,7 @@ export default function InitiativeTracker({ combatState, onUpdate, isDM, players
             newRound += 1
         }
         onUpdate({ ...combatState, turnIndex: next, round: newRound })
+        onTurnAdvance?.()
     }
 
     const handlePrevTurn = () => {
@@ -48,11 +47,24 @@ export default function InitiativeTracker({ combatState, onUpdate, isDM, players
     return (
         <div className="initiative-tracker card">
             <div className="init-header">
-                <h4>⚔️ Savaş — Tur {round}</h4>
+                <h4>⚔️ Sıra (İnisiyatif) — Tur {round}</h4>
                 {isDM && (
                     <div className="init-controls">
                         <button className="btn btn-sm btn-ghost" onClick={handlePrevTurn}>◀</button>
                         <button className="btn btn-sm btn-primary" onClick={handleNextTurn}>Sonraki ▶</button>
+                    </div>
+                )}
+            </div>
+
+            <div className="turn-helper">
+                <p><strong>Şimdi:</strong> {currentTurn?.name || 'Bilinmiyor'}</p>
+                <p><strong>Öneri:</strong> Saldır veya Yardım seç.</p>
+                {isDM ? (
+                    <p><strong>Sonra:</strong> Tur bitince <em>Sonraki</em> düğmesine bas.</p>
+                ) : (
+                    <div className="turn-helper-player">
+                        <p><strong>Sonra:</strong> Hamleni bitirdiğinde “Sıram Bitti” de.</p>
+                        <button className="btn btn-sm btn-ghost" onClick={() => onPracticeTurnEnd?.()}>✅ Sıram Bitti</button>
                     </div>
                 )}
             </div>

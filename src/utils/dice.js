@@ -47,3 +47,46 @@ export function getCritical(natural) {
   if (natural === 1) return 'critical-fail'
   return null
 }
+
+/**
+ * Plain-language roll interpretation for beginner guidance.
+ */
+export function describeRollOutcome(total, natural) {
+  if (natural === 20) {
+    return {
+      level: 'critical-success',
+      short: 'Kritik başarı',
+      meaning: 'Mükemmel bir sonuç. Çok güçlü etki.',
+    }
+  }
+
+  if (natural === 1) {
+    return {
+      level: 'critical-failure',
+      short: 'Kritik başarısızlık',
+      meaning: 'Ters gitti. Planını değiştirmen gerekebilir.',
+    }
+  }
+
+  if (total >= 15) {
+    return {
+      level: 'success',
+      short: 'Başarı',
+      meaning: 'Hedefini büyük ölçüde başardın.',
+    }
+  }
+
+  if (total >= 10) {
+    return {
+      level: 'partial',
+      short: 'Kısmi başarı',
+      meaning: 'Bir kısmı oldu ama risk devam ediyor.',
+    }
+  }
+
+  return {
+    level: 'failure',
+    short: 'Başarısız',
+    meaning: 'Bu deneme olmadı. Farklı bir yaklaşım dene.',
+  }
+}

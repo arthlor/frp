@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { rollD20, rollAdvantage, rollDisadvantage, getCritical } from '../utils/dice'
+import {
+    rollD20,
+    rollAdvantage,
+    rollDisadvantage,
+    getCritical,
+    describeRollOutcome,
+} from '../utils/dice'
 import './DiceRoller.css'
 
 export default function DiceRoller({ onRoll, history, isDM }) {
@@ -13,10 +19,12 @@ export default function DiceRoller({ onRoll, history, isDM }) {
         setLastRoll(result)
         setTimeout(() => setIsRolling(false), 600)
         const critical = getCritical(result.natural)
-        onRoll({ ...result, isPrivate, critical })
+        const outcome = describeRollOutcome(result.total, result.natural)
+        onRoll({ ...result, isPrivate, critical, outcome })
     }
 
     const critClass = lastRoll ? getCritical(lastRoll.natural) : null
+    const lastOutcome = lastRoll ? describeRollOutcome(lastRoll.total, lastRoll.natural) : null
 
     return (
         <div className="dice-roller">
@@ -28,6 +36,11 @@ export default function DiceRoller({ onRoll, history, isDM }) {
                         {lastRoll.formula} → [{lastRoll.rolls.join(', ')}]
                         {lastRoll.modifier ? ` ${lastRoll.modifier >= 0 ? '+' : ''}${lastRoll.modifier}` : ''}
                     </div>
+                    {lastOutcome && (
+                        <div className="result-outcome">
+                            {lastOutcome.short}: {lastOutcome.meaning}
+                        </div>
+                    )}
                     {critClass === 'critical-hit' && <div className="crit-text crit-success">🎯 KRİTİK VURUŞ!</div>}
                     {critClass === 'critical-fail' && <div className="crit-text crit-fail">💀 KRİTİK BAŞARISIZLIK!</div>}
                 </div>

@@ -1,12 +1,29 @@
 import { useState } from 'react'
 import {
-    generateSessionCode,
-    getOrCreatePlayerId,
+    ensureAuthenticatedUser,
     createSession,
     findSession,
     upsertPlayer,
 } from '../utils/supabase'
 import './Landing.css'
+
+function toUserFacingError(err, fallback) {
+    const msg = String(err?.message || '')
+
+    if (msg.includes('Failed to fetch')) {
+        return 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.'
+    }
+
+    if (msg.includes('Anon auth failed')) {
+        return 'Kimlik doğrulama başarısız. Supabase anonim giriş ayarını kontrol et.'
+    }
+
+    if (err?.code === '42501') {
+        return 'Yetki hatası oluştu. Supabase RLS politikalarını güncelle.'
+    }
+
+    return fallback
+}
 
 export default function Landing({ onJoin, onOpenLore }) {
     const [mode, setMode] = useState(null) // 'create' | 'join'
@@ -22,24 +39,26 @@ export default function Landing({ onJoin, onOpenLore }) {
             setError('Lütfen tüm alanları doldurun.')
             return
         }
+
         setLoading(true)
         setError('')
+
         try {
-            const code = generateSessionCode()
-            const playerId = getOrCreatePlayerId()
-            const session = await createSession(code, sessionName.trim(), playerId)
-            await upsertPlayer(session.id, playerId, playerName.trim(), 'dm')
+            const user = await ensureAuthenticatedUser()
+            const session = await createSession(sessionName.trim(), user.id)
+            const player = await upsertPlayer(session.id, user.id, playerName.trim())
+
             onJoin({
                 id: session.id,
-                code,
-                name: sessionName.trim(),
-                playerId,
-                playerName: playerName.trim(),
-                role: 'dm',
+                code: session.code,
+                name: session.name,
+                playerId: user.id,
+                playerName: player.name,
+                role: player.role,
             })
         } catch (err) {
             console.error('Session create error:', err)
-            setError('Oturum oluşturulamadı. Tekrar dene.')
+            setError(toUserFacingError(err, 'Oturum oluşturulamadı. Tekrar dene.'))
         } finally {
             setLoading(false)
         }
@@ -51,28 +70,32 @@ export default function Landing({ onJoin, onOpenLore }) {
             setError('Lütfen tüm alanları doldurun.')
             return
         }
+
         setLoading(true)
         setError('')
+
         try {
+            const user = await ensureAuthenticatedUser()
             const session = await findSession(sessionCode.trim())
+
             if (!session) {
                 setError('Oturum bulunamadı. Kodu kontrol et.')
-                setLoading(false)
                 return
             }
-            const playerId = getOrCreatePlayerId()
-            await upsertPlayer(session.id, playerId, playerName.trim(), 'player')
+
+            const player = await upsertPlayer(session.id, user.id, playerName.trim())
+
             onJoin({
                 id: session.id,
                 code: session.code,
                 name: session.name,
-                playerId,
-                playerName: playerName.trim(),
-                role: 'player',
+                playerId: user.id,
+                playerName: player.name,
+                role: player.role,
             })
         } catch (err) {
             console.error('Session join error:', err)
-            setError('Oturuma katılınamadı. Tekrar dene.')
+            setError(toUserFacingError(err, 'Oturuma katılınamadı. Tekrar dene.'))
         } finally {
             setLoading(false)
         }

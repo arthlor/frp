@@ -1,21 +1,61 @@
 import { useState } from 'react'
 import { BESTIARY, createNpcFromBestiary } from '../data/bestiary'
-import { rollD20 } from '../utils/dice'
+import { rollD20, describeRollOutcome } from '../utils/dice'
 import './DMScreen.css'
+
+const ENCOUNTER_PRESETS = [
+    {
+        id: 'easy',
+        label: 'Kolay',
+        description: 'Yeni grup için yumuşak giriş.',
+        roster: ['satyr', 'satyr', 'truva-hayaletleri'],
+    },
+    {
+        id: 'medium',
+        label: 'Orta',
+        description: 'Denge savaşı, dikkat ister.',
+        roster: ['satyr', 'truva-hayaletleri', 'drakon-phrygios'],
+    },
+    {
+        id: 'hard',
+        label: 'Zor',
+        description: 'Sert çatışma, ekip koordinasyonu şart.',
+        roster: ['drakon-phrygios', 'tahta-at-golemi', 'truva-hayaletleri'],
+    },
+]
+
+const OPENING_TEMPLATES = [
+    'Gece çöktü. Kaz Dağları sessiz ama hava tuhaf bir enerjiyle titriyor. Uzakta bir ışık yarığı açılıyor...',
+    'Sazlı Köyü meydanında insanlar telaşlı. Toprak sarsıldı ve tepenin üzerinden mor bir parıltı yükseldi.',
+    'Rüzgar bir anda yön değiştirdi. Köpekler aynı noktaya havlıyor. Eski bir kapı yeniden açılıyor olabilir.',
+]
 
 export default function DMScreen({ onClose, onDiceRoll, onNarration, combatState, onCombatUpdate, npcs, onNpcUpdate, players }) {
     const [tab, setTab] = useState('creatures')
     const [narrationText, setNarrationText] = useState('')
+    const [checklist, setChecklist] = useState({
+        intro: false,
+        firstRoll: false,
+        firstCombat: false,
+    })
 
     const handleNarration = () => {
         if (!narrationText.trim()) return
         onNarration(narrationText.trim())
+        setChecklist((prev) => ({ ...prev, intro: true }))
         setNarrationText('')
     }
 
     const handlePrivateRoll = () => {
         const result = rollD20()
-        onDiceRoll({ ...result, isPrivate: true, critical: result.natural === 20 ? 'critical-hit' : result.natural === 1 ? 'critical-fail' : null })
+        const outcome = describeRollOutcome(result.total, result.natural)
+        onDiceRoll({
+            ...result,
+            isPrivate: true,
+            outcome,
+            critical: result.natural === 20 ? 'critical-hit' : result.natural === 1 ? 'critical-fail' : null,
+        })
+        setChecklist((prev) => ({ ...prev, firstRoll: true }))
     }
 
     const handleAddNpc = (bestiaryId) => {
@@ -23,28 +63,47 @@ export default function DMScreen({ onClose, onDiceRoll, onNarration, combatState
         if (npc) onNpcUpdate([...npcs, npc])
     }
 
+    const handleApplyPreset = (presetId) => {
+        const preset = ENCOUNTER_PRESETS.find((p) => p.id === presetId)
+        if (!preset) return
+
+        const generated = preset.roster
+            .map((id) => createNpcFromBestiary(id))
+            .filter(Boolean)
+
+        if (generated.length === 0) return
+        onNpcUpdate([...npcs, ...generated])
+    }
+
     const adjustNpcHp = (instanceId, delta) => {
-        onNpcUpdate(npcs.map(n =>
+        onNpcUpdate(npcs.map((n) => (
             n.instanceId === instanceId
                 ? { ...n, hp: { ...n.hp, current: Math.max(0, Math.min(n.hp.max, n.hp.current + delta)) } }
                 : n
-        ))
+        )))
     }
 
     const removeNpc = (instanceId) => {
-        onNpcUpdate(npcs.filter(n => n.instanceId !== instanceId))
+        onNpcUpdate(npcs.filter((n) => n.instanceId !== instanceId))
     }
 
     const handleStartCombat = () => {
         const initiative = [
-            ...Object.values(players).filter(p => p.character).map(p => ({
-                id: p.id, name: p.character.name, roll: 0, isNPC: false
+            ...Object.values(players).filter((p) => p.character).map((p) => ({
+                id: p.id,
+                name: p.character.name,
+                roll: 0,
+                isNPC: false,
             })),
-            ...npcs.map(n => ({
-                id: n.instanceId, name: n.name, roll: 0, isNPC: true
-            }))
+            ...npcs.map((n) => ({
+                id: n.instanceId,
+                name: n.name,
+                roll: 0,
+                isNPC: true,
+            })),
         ]
         onCombatUpdate({ isActive: true, round: 1, turnIndex: 0, initiative })
+        setChecklist((prev) => ({ ...prev, firstCombat: true }))
     }
 
     return (
@@ -65,14 +124,24 @@ export default function DMScreen({ onClose, onDiceRoll, onNarration, combatState
                 </div>
 
                 <div className="dm-content">
-                    {/* Creatures Tab — Bestiary + Active NPCs */}
                     {tab === 'creatures' && (
                         <div className="creatures-tab">
-                            {/* Active NPCs */}
+                            <div className="encounter-presets card">
+                                <h4>⚙️ Hızlı Karşılaşma</h4>
+                                <div className="preset-buttons">
+                                    {ENCOUNTER_PRESETS.map((preset) => (
+                                        <button key={preset.id} className="btn btn-sm" onClick={() => handleApplyPreset(preset.id)}>
+                                            {preset.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-muted">Kolay / Orta / Zor paketleri mevcut NPC listesine eklenir.</p>
+                            </div>
+
                             {npcs.length > 0 && (
                                 <div className="active-npcs">
                                     <h4>Aktif NPC'ler</h4>
-                                    {npcs.map(npc => {
+                                    {npcs.map((npc) => {
                                         const hpPct = (npc.hp.current / npc.hp.max) * 100
                                         return (
                                             <div key={npc.instanceId} className="npc-row">
@@ -92,28 +161,39 @@ export default function DMScreen({ onClose, onDiceRoll, onNarration, combatState
                                 </div>
                             )}
 
-                            {/* Bestiary */}
                             <h4>Yaratık Ekle</h4>
                             <div className="bestiary-grid">
-                                {BESTIARY.map(mon => (
+                                {BESTIARY.map((mon) => (
                                     <button key={mon.id} className="bestiary-btn" onClick={() => handleAddNpc(mon.id)}>
                                         <span className="mon-icon">{mon.icon}</span>
                                         <span className="mon-name">{mon.name}</span>
-                                        <span className="text-xs text-muted">HP {mon.hp.max} | AC {mon.ac}</span>
+                                        <span className="text-xs text-muted">Can (HP) {mon.hp.max} | Zırh (AC) {mon.ac}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* Narration Tab */}
                     {tab === 'narration' && (
                         <div className="narration-tab">
                             <p className="text-muted text-sm">Tüm oyunculara gönderilecek anlatı:</p>
+
+                            <div className="narration-templates">
+                                {OPENING_TEMPLATES.map((template, idx) => (
+                                    <button
+                                        key={idx}
+                                        className="btn btn-sm btn-ghost"
+                                        onClick={() => setNarrationText(template)}
+                                    >
+                                        Açılış Şablonu {idx + 1}
+                                    </button>
+                                ))}
+                            </div>
+
                             <textarea
                                 className="input narration-input"
                                 value={narrationText}
-                                onChange={e => setNarrationText(e.target.value)}
+                                onChange={(e) => setNarrationText(e.target.value)}
                                 placeholder="Karanlık orman yolunda ilerlerken..."
                                 rows={4}
                             />
@@ -123,9 +203,15 @@ export default function DMScreen({ onClose, onDiceRoll, onNarration, combatState
                         </div>
                     )}
 
-                    {/* Combat Tab */}
                     {tab === 'combat' && (
                         <div className="combat-tab">
+                            <div className="dm-checklist card">
+                                <h4>✅ Oturum Başlangıç Kontrol Listesi</h4>
+                                <label><input type="checkbox" checked={checklist.intro} onChange={(e) => setChecklist((prev) => ({ ...prev, intro: e.target.checked }))} /> Giriş anlatısını yaptım</label>
+                                <label><input type="checkbox" checked={checklist.firstRoll} onChange={(e) => setChecklist((prev) => ({ ...prev, firstRoll: e.target.checked }))} /> İlk zarı attırdım</label>
+                                <label><input type="checkbox" checked={checklist.firstCombat} onChange={(e) => setChecklist((prev) => ({ ...prev, firstCombat: e.target.checked }))} /> İlk savaşı başlattım</label>
+                            </div>
+
                             {!combatState?.isActive ? (
                                 <div className="combat-start">
                                     <p className="text-muted text-sm">Oyuncular ve NPC'lerle savaş başlat</p>

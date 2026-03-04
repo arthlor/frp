@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import './ChatPanel.css'
 
-export default function ChatPanel({ messages, onSend, isDM, playerName }) {
+export default function ChatPanel({ messages, onSend, isDM, playerName, onNeedSuggestion }) {
     const [text, setText] = useState('')
     const [isNarration, setIsNarration] = useState(false)
+    const [suggestion, setSuggestion] = useState('')
     const listRef = useRef(null)
 
     useEffect(() => {
@@ -22,14 +23,21 @@ export default function ChatPanel({ messages, onSend, isDM, playerName }) {
         setText('')
     }
 
+    const handleNeedSuggestion = () => {
+        const nextSuggestion = onNeedSuggestion?.() || 'Bir hedef seç ve kısa planını yaz.'
+        setSuggestion(nextSuggestion)
+        setText(nextSuggestion)
+    }
+
     return (
         <div className="chat-panel">
             <div className="chat-header">
                 <h4>💬 Sohbet</h4>
+                <button className="btn btn-sm btn-ghost" onClick={handleNeedSuggestion}>Şimdi ne yapayım?</button>
             </div>
 
             <div className="chat-messages" ref={listRef}>
-                {messages.map(msg => (
+                {messages.map((msg) => (
                     <div key={msg.id} className={`chat-msg msg-${msg.type}`}>
                         {msg.type === 'narration' ? (
                             <div className="msg-narration">
@@ -54,17 +62,18 @@ export default function ChatPanel({ messages, onSend, isDM, playerName }) {
             <form className="chat-input" onSubmit={handleSubmit}>
                 {isDM && (
                     <label className="narration-toggle">
-                        <input type="checkbox" checked={isNarration} onChange={e => setIsNarration(e.target.checked)} />
+                        <input type="checkbox" checked={isNarration} onChange={(e) => setIsNarration(e.target.checked)} />
                         <span>📜 Anlatı</span>
                     </label>
                 )}
+                {suggestion && <p className="chat-suggestion text-xs">💡 Öneri: {suggestion}</p>}
                 <div className="chat-input-row">
                     <input
                         className="input"
                         type="text"
                         placeholder={isNarration ? 'Sahneyi anlat...' : 'Mesaj yaz...'}
                         value={text}
-                        onChange={e => setText(e.target.value)}
+                        onChange={(e) => setText(e.target.value)}
                         maxLength={500}
                     />
                     <button type="submit" className="btn btn-primary btn-sm">→</button>

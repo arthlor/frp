@@ -13,11 +13,27 @@ const TABS = [
     { id: 'regions', label: 'Bölgeler', icon: '🗺️' },
 ]
 
+const GLOSSARY = [
+    {
+        term: 'Zırh (AC)',
+        description: 'Bir saldırının sana isabet etmesinin ne kadar zor olduğunu gösteren savunma değeri.',
+    },
+    {
+        term: 'İnisiyatif',
+        description: 'Savaşta kimin hangi sırayla oynayacağını belirleyen sıra düzeni.',
+    },
+    {
+        term: 'Kritik',
+        description: 'd20 sonucunda 20 gelirse çok güçlü başarı, 1 gelirse kritik başarısızlık olur.',
+    },
+]
+
 export default function LorePage({ onBack }) {
     const [activeTab, setActiveTab] = useState('world')
     const [expandedBloodline, setExpandedBloodline] = useState(null)
     const [expandedCreature, setExpandedCreature] = useState(null)
     const [expandedItem, setExpandedItem] = useState(null)
+    const [selectedGlossary, setSelectedGlossary] = useState(GLOSSARY[0])
 
     return (
         <div className="lore-page">
@@ -37,6 +53,24 @@ export default function LorePage({ onBack }) {
                         <p className="lore-subtitle">{WORLD_LORE.title} — Oyuncu El Kitabı</p>
                     </div>
                 </header>
+
+                <section className="lore-glossary card animate-fade-in">
+                    <h3>🧩 Hızlı Terimler</h3>
+                    <div className="glossary-pills">
+                        {GLOSSARY.map((item) => (
+                            <button
+                                key={item.term}
+                                type="button"
+                                className={`glossary-pill ${selectedGlossary.term === item.term ? 'active' : ''}`}
+                                title={item.description}
+                                onClick={() => setSelectedGlossary(item)}
+                            >
+                                {item.term}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-sm">{selectedGlossary.description}</p>
+                </section>
 
                 {/* Tab Navigation */}
                 <nav className="lore-tabs" role="tablist">

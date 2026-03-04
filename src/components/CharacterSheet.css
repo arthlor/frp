@@ -120,6 +120,26 @@
     border-radius: var(--radius-md);
 }
 
+.stat-clickable {
+    width: 100%;
+    border: 1px solid var(--border-subtle);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.stat-clickable:hover {
+    border-color: var(--gold);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-gold);
+}
+
+.stat-clickable:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
 .stat-icon {
     font-size: 1rem;
 }
@@ -174,4 +194,10 @@
     resize: vertical;
     min-height: 60px;
     font-size: var(--text-sm);
+}
+
+.glossary-term {
+    border-bottom: 1px dotted var(--border-medium);
+    text-decoration: none;
+    cursor: help;
 }

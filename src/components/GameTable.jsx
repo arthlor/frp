@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import CharacterCreator from './CharacterCreator'
 import CharacterSheet from './CharacterSheet'
 import PlayerCard from './PlayerCard'
@@ -6,22 +6,62 @@ import DiceRoller from './DiceRoller'
 import ChatPanel from './ChatPanel'
 import DMScreen from './DMScreen'
 import InitiativeTracker from './InitiativeTracker'
-import { BLOODLINES } from '../data/bloodlines'
+import { BLOODLINES, STAT_NAMES, getModifier } from '../data/bloodlines'
+import { rollD20, getCritical, describeRollOutcome } from '../utils/dice'
 import {
     getSessionPlayers,
-    upsertPlayer,
     updateCharacter,
-    setPlayerOnline,
     subscribeToPlayers,
+    getSessionState,
+    upsertSessionState,
+    subscribeToSessionState,
     createGameChannel,
     subscribeGameEvents,
     broadcastEvent,
 } from '../utils/supabase'
 import './GameTable.css'
 
-export default function GameTable({ session, onLeave }) {
+const MAX_DICE_HISTORY = 50
+const MAX_CHAT_MESSAGES = 200
+const ONBOARDING_STEP_KEYS = ['openSheet', 'rollD20', 'sendChat', 'endTurn']
+
+function mapDbPlayerToUI(row) {
+    const userId = row.user_id || row.player_id
+    if (!userId) return null
+
+    return {
+        id: userId,
+        name: row.name,
+        role: row.role,
+        character: row.character_data,
+        isOnline: row.is_online,
+        dbId: row.id,
+    }
+}
+
+function getOnlineIdsFromPresenceState(presenceState) {
+    const onlineIds = new Set()
+
+    Object.values(presenceState || {}).forEach((entries) => {
+        if (!Array.isArray(entries)) return
+        entries.forEach((entry) => {
+            if (entry?.player_id) {
+                onlineIds.add(entry.player_id)
+            }
+        })
+    })
+
+    return onlineIds
+}
+
+function cloneCharacter(character) {
+    return JSON.parse(JSON.stringify(character))
+}
+
+export default function GameTable({ session, onLeave, showOnboarding = false, onCompleteOnboarding }) {
     const [players, setPlayers] = useState({})
     const [myCharacter, setMyCharacter] = useState(null)
+    const [myRole, setMyRole] = useState(null)
     const [showCreator, setShowCreator] = useState(false)
     const [showDMScreen, setShowDMScreen] = useState(false)
     const [showMySheet, setShowMySheet] = useState(false)
@@ -31,94 +71,232 @@ export default function GameTable({ session, onLeave }) {
     const [chatMessages, setChatMessages] = useState([])
     const [combatState, setCombatState] = useState(null)
     const [npcs, setNpcs] = useState([])
+    const [onlinePlayerIds, setOnlinePlayerIds] = useState(() => new Set())
     const [copied, setCopied] = useState(false)
     const [connectionStatus, setConnectionStatus] = useState('connecting')
+    const [beginnerMode, setBeginnerMode] = useState(true)
+    const [onboardingProgress, setOnboardingProgress] = useState({
+        openSheet: false,
+        rollD20: false,
+        sendChat: false,
+        endTurn: false,
+    })
+    const [hpUndo, setHpUndo] = useState(null)
+
     const channelRef = useRef(null)
     const playerSubRef = useRef(null)
-    const isDM = session.role === 'dm'
+    const stateSubRef = useRef(null)
+    const myRoleRef = useRef(null)
+    const combatStateRef = useRef(null)
+    const npcsRef = useRef([])
+    const hpUndoTimeoutRef = useRef(null)
 
-    // ─── Initialize: load players from DB, set up real-time ───
+    useEffect(() => {
+        myRoleRef.current = myRole
+    }, [myRole])
+
+    useEffect(() => {
+        combatStateRef.current = combatState
+    }, [combatState])
+
+    useEffect(() => {
+        npcsRef.current = npcs
+    }, [npcs])
+
+    const isDM = myRole === 'dm'
+
+    const beginnerModeStorageKey = useMemo(() => `ida_beginner_mode_${session.playerId}`, [session.playerId])
+
+    useEffect(() => {
+        const saved = sessionStorage.getItem(beginnerModeStorageKey)
+        if (saved === null) {
+            setBeginnerMode(true)
+            return
+        }
+        setBeginnerMode(saved !== '0')
+    }, [beginnerModeStorageKey])
+
+    const markOnboardingStep = useCallback((key) => {
+        if (!showOnboarding || !ONBOARDING_STEP_KEYS.includes(key)) return
+
+        setOnboardingProgress((prev) => {
+            if (prev[key]) return prev
+            return { ...prev, [key]: true }
+        })
+    }, [showOnboarding])
+
+    useEffect(() => {
+        if (!showOnboarding) return
+        setOnboardingProgress({
+            openSheet: false,
+            rollD20: false,
+            sendChat: false,
+            endTurn: false,
+        })
+    }, [showOnboarding, session.id])
+
+    const onboardingDone = ONBOARDING_STEP_KEYS.every((k) => onboardingProgress[k])
+
+    useEffect(() => {
+        if (!showOnboarding || !onboardingDone) return
+        onCompleteOnboarding?.()
+    }, [showOnboarding, onboardingDone, onCompleteOnboarding])
+
+    const currentOnboardingStep = useMemo(
+        () => ONBOARDING_STEP_KEYS.find((key) => !onboardingProgress[key]) || null,
+        [onboardingProgress],
+    )
+
+    const clearHpUndoTimer = useCallback(() => {
+        if (hpUndoTimeoutRef.current) {
+            clearTimeout(hpUndoTimeoutRef.current)
+            hpUndoTimeoutRef.current = null
+        }
+    }, [])
+
+    useEffect(() => {
+        return () => {
+            clearHpUndoTimer()
+        }
+    }, [clearHpUndoTimer])
+
+    const queueHpUndo = useCallback((playerId, previousCharacter) => {
+        clearHpUndoTimer()
+        const snapshot = cloneCharacter(previousCharacter)
+
+        setHpUndo({
+            playerId,
+            character: snapshot,
+            expiresAt: Date.now() + 10000,
+        })
+
+        hpUndoTimeoutRef.current = setTimeout(() => {
+            setHpUndo(null)
+            hpUndoTimeoutRef.current = null
+        }, 10000)
+    }, [clearHpUndoTimer])
+
+    const formatRollMessage = useCallback((roll) => {
+        const critText = roll.critical === 'critical-hit'
+            ? ' 🎯 KRİTİK!'
+            : roll.critical === 'critical-fail'
+                ? ' 💀 KRİTİK BAŞARISIZLIK!'
+                : ''
+
+        const outcome = roll.outcome || describeRollOutcome(roll.total, roll.natural)
+        return `🎲 ${roll.formula}: [${roll.rolls.join(', ')}]${roll.modifier ? (roll.modifier > 0 ? '+' : '') + roll.modifier : ''} = ${roll.total}${critText} — ${outcome.short}: ${outcome.meaning}`
+    }, [])
+
+    // ─── Initialize: load DB state + set up real-time ───
     useEffect(() => {
         let isMounted = true
 
         async function init() {
-            // Load saved character from sessionStorage
             const savedChar = sessionStorage.getItem(`ida_char_${session.code}`)
             let parsedChar = null
             if (savedChar) {
-                try { parsedChar = JSON.parse(savedChar) } catch (e) { /* ignore */ }
+                try {
+                    parsedChar = JSON.parse(savedChar)
+                } catch {
+                    // Ignore malformed local cache.
+                }
             }
             if (parsedChar && isMounted) setMyCharacter(parsedChar)
 
-            // Fetch existing players from Supabase
             try {
-                const dbPlayers = await getSessionPlayers(session.id)
+                const [dbPlayers, dbState] = await Promise.all([
+                    getSessionPlayers(session.id),
+                    getSessionState(session.id),
+                ])
+
                 if (isMounted) {
                     const map = {}
-                    dbPlayers.forEach(p => {
-                        map[p.player_id] = {
-                            id: p.player_id,
-                            name: p.name,
-                            role: p.role,
-                            character: p.character_data,
-                            isOnline: p.is_online,
-                            dbId: p.id,
+
+                    dbPlayers.forEach((p) => {
+                        const mapped = mapDbPlayerToUI(p)
+                        if (mapped) {
+                            map[mapped.id] = mapped
                         }
                     })
-                    // Ensure we're in the map
+
                     if (!map[session.playerId]) {
                         map[session.playerId] = {
                             id: session.playerId,
                             name: session.playerName,
-                            role: session.role,
+                            role: 'player',
                             character: parsedChar,
                             isOnline: true,
                         }
                     }
+
                     setPlayers(map)
+                    setMyRole(map[session.playerId]?.role || 'player')
+
+                    if (dbState) {
+                        setCombatState(dbState.combat_state || null)
+                        setNpcs(Array.isArray(dbState.npc_state) ? dbState.npc_state : [])
+                    }
                 }
             } catch (err) {
-                console.error('Failed to load players:', err)
-                // Fallback to local-only
+                console.error('Failed to load session state:', err)
+
                 if (isMounted) {
                     setPlayers({
                         [session.playerId]: {
                             id: session.playerId,
                             name: session.playerName,
-                            role: session.role,
+                            role: 'player',
                             character: parsedChar,
                             isOnline: true,
-                        }
+                        },
                     })
+                    setMyRole('player')
                 }
             }
 
-            // Subscribe to player table changes (join/leave/character updates)
             playerSubRef.current = subscribeToPlayers(session.id, (payload) => {
                 if (!isMounted) return
+
                 const { eventType, new: newRow, old: oldRow } = payload
+
                 if (eventType === 'INSERT' || eventType === 'UPDATE') {
-                    setPlayers(prev => ({
+                    const mapped = mapDbPlayerToUI(newRow)
+                    if (!mapped) return
+
+                    setPlayers((prev) => ({
                         ...prev,
-                        [newRow.player_id]: {
-                            id: newRow.player_id,
-                            name: newRow.name,
-                            role: newRow.role,
-                            character: newRow.character_data,
-                            isOnline: newRow.is_online,
-                            dbId: newRow.id,
-                        }
+                        [mapped.id]: mapped,
                     }))
+
+                    if (mapped.id === session.playerId) {
+                        setMyRole(mapped.role)
+                    }
                 } else if (eventType === 'DELETE' && oldRow) {
-                    setPlayers(prev => {
+                    const oldId = oldRow.user_id || oldRow.player_id
+                    if (!oldId) return
+
+                    setPlayers((prev) => {
                         const next = { ...prev }
-                        delete next[oldRow.player_id]
+                        delete next[oldId]
                         return next
                     })
                 }
             })
 
-            // Set up broadcast channel for ephemeral game events
+            stateSubRef.current = subscribeToSessionState(session.id, (payload) => {
+                if (!isMounted) return
+
+                const { eventType, new: newRow } = payload
+
+                if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRow) {
+                    setCombatState(newRow.combat_state || null)
+                    setNpcs(Array.isArray(newRow.npc_state) ? newRow.npc_state : [])
+                } else if (eventType === 'DELETE') {
+                    setCombatState(null)
+                    setNpcs([])
+                }
+            })
+
             const channel = createGameChannel(session.code)
             channelRef.current = channel
 
@@ -128,71 +306,83 @@ export default function GameTable({ session, onLeave }) {
 
                 onDiceRoll: (roll) => {
                     if (!isMounted) return
-                    setDiceHistory(prev => [roll, ...prev].slice(0, 50))
-                    // Add to chat as system message
-                    if (!roll.isPrivate || roll.playerId === session.playerId) {
-                        const critText = roll.critical === 'critical-hit' ? ' 🎯 KRİTİK!' :
-                            roll.critical === 'critical-fail' ? ' 💀 BAŞARISIZ!' : ''
-                        setChatMessages(prev => [...prev, {
-                            id: roll.id || crypto.randomUUID(),
-                            playerId: roll.playerId,
-                            playerName: roll.playerName,
-                            message: `🎲 ${roll.formula}: [${roll.rolls.join(', ')}]${roll.modifier ? (roll.modifier > 0 ? '+' : '') + roll.modifier : ''} = ${roll.total}${critText}`,
-                            type: 'system',
-                            timestamp: roll.timestamp || Date.now(),
-                        }])
-                    }
+
+                    const amDm = myRoleRef.current === 'dm'
+                    const canSeeRoll = !roll.isPrivate || amDm || roll.playerId === session.playerId
+                    if (!canSeeRoll) return
+
+                    setDiceHistory((prev) => [roll, ...prev].slice(0, MAX_DICE_HISTORY))
+
+                    setChatMessages((prev) => ([...prev, {
+                        id: roll.id || crypto.randomUUID(),
+                        playerId: roll.playerId,
+                        playerName: roll.playerName,
+                        message: formatRollMessage(roll),
+                        type: 'system',
+                        timestamp: roll.timestamp || Date.now(),
+                    }]).slice(-MAX_CHAT_MESSAGES))
                 },
 
                 onChat: (msg) => {
                     if (!isMounted) return
-                    setChatMessages(prev => [...prev, msg])
-                },
-
-                onCombat: (state) => {
-                    if (!isMounted) return
-                    setCombatState(state)
-                },
-
-                onNpc: (npcList) => {
-                    if (!isMounted) return
-                    setNpcs(npcList)
+                    setChatMessages((prev) => ([...prev, msg]).slice(-MAX_CHAT_MESSAGES))
                 },
 
                 onPresence: (presenceState) => {
                     if (!isMounted) return
+                    setOnlinePlayerIds(getOnlineIdsFromPresenceState(presenceState))
                     setConnectionStatus('connected')
+                },
+
+                onStatus: (status) => {
+                    if (!isMounted) return
+
+                    if (status === 'SUBSCRIBED') {
+                        setConnectionStatus('connected')
+                        return
+                    }
+
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        setConnectionStatus('connecting')
+                    }
                 },
             })
         }
 
         init()
 
-        // Cleanup on unmount
         return () => {
             isMounted = false
-            setPlayerOnline(session.id, session.playerId, false).catch(() => { })
+
             if (channelRef.current) channelRef.current.unsubscribe()
             if (playerSubRef.current) playerSubRef.current.unsubscribe()
+            if (stateSubRef.current) stateSubRef.current.unsubscribe()
         }
-    }, [session])
+    }, [session, formatRollMessage])
 
-    // ─── Sync character to Supabase when it changes ───
+    // ─── Sync my character to Supabase when it changes ───
     useEffect(() => {
-        if (myCharacter) {
-            sessionStorage.setItem(`ida_char_${session.code}`, JSON.stringify(myCharacter))
-            // Update in DB
-            updateCharacter(session.id, session.playerId, myCharacter).catch(console.error)
-            // Update local players map
-            setPlayers(prev => ({
-                ...prev,
-                [session.playerId]: {
-                    ...prev[session.playerId],
-                    character: myCharacter,
-                }
-            }))
-        }
-    }, [myCharacter, session.code, session.playerId, session.id])
+        if (!myCharacter) return
+
+        sessionStorage.setItem(`ida_char_${session.code}`, JSON.stringify(myCharacter))
+
+        updateCharacter(session.id, session.playerId, myCharacter).catch((err) => {
+            console.error('Failed to sync my character:', err)
+        })
+
+        setPlayers((prev) => ({
+            ...prev,
+            [session.playerId]: {
+                ...(prev[session.playerId] || {
+                    id: session.playerId,
+                    name: session.playerName,
+                    role: myRole || 'player',
+                    isOnline: true,
+                }),
+                character: myCharacter,
+            },
+        }))
+    }, [myCharacter, session.code, session.playerId, session.playerName, session.id, myRole])
 
     // ─── Handlers ─────────────────────────────────────────────
 
@@ -202,31 +392,94 @@ export default function GameTable({ session, onLeave }) {
     }, [])
 
     const handleCharacterUpdate = useCallback((updates) => {
-        setMyCharacter(prev => ({ ...prev, ...updates }))
+        setMyCharacter((prev) => ({ ...prev, ...updates }))
     }, [])
 
-    const handlePlayerHpChange = useCallback((playerId, delta) => {
-        if (playerId === session.playerId && myCharacter) {
-            const newHp = Math.max(0, Math.min(myCharacter.hp.max, myCharacter.hp.current + delta))
-            setMyCharacter(prev => ({ ...prev, hp: { ...prev.hp, current: newHp } }))
+    const handleUndoLastHpChange = useCallback(() => {
+        if (!hpUndo?.character) return
+
+        clearHpUndoTimer()
+
+        if (hpUndo.playerId === session.playerId) {
+            setMyCharacter(hpUndo.character)
+            setHpUndo(null)
+            return
         }
-    }, [session.playerId, myCharacter])
+
+        setPlayers((prev) => ({
+            ...prev,
+            [hpUndo.playerId]: {
+                ...prev[hpUndo.playerId],
+                character: hpUndo.character,
+            },
+        }))
+
+        updateCharacter(session.id, hpUndo.playerId, hpUndo.character).catch((err) => {
+            console.error('Failed to undo HP change:', err)
+        })
+
+        setHpUndo(null)
+    }, [hpUndo, session.playerId, session.id, clearHpUndoTimer])
+
+    const handlePlayerHpChange = useCallback((playerId, delta) => {
+        const target = players[playerId]
+        if (!target?.character?.hp) return
+
+        const canEdit = playerId === session.playerId || isDM
+        if (!canEdit) return
+
+        const previousCharacter = cloneCharacter(target.character)
+        const newHp = Math.max(0, Math.min(target.character.hp.max, target.character.hp.current + delta))
+        const updatedCharacter = {
+            ...target.character,
+            hp: {
+                ...target.character.hp,
+                current: newHp,
+            },
+        }
+
+        queueHpUndo(playerId, previousCharacter)
+
+        if (playerId === session.playerId) {
+            setMyCharacter(updatedCharacter)
+            return
+        }
+
+        setPlayers((prev) => ({
+            ...prev,
+            [playerId]: {
+                ...prev[playerId],
+                character: updatedCharacter,
+            },
+        }))
+
+        updateCharacter(session.id, playerId, updatedCharacter).catch((err) => {
+            console.error('Failed to update target HP:', err)
+        })
+    }, [players, session.playerId, session.id, isDM, queueHpUndo])
 
     const handleDiceRoll = useCallback((roll) => {
+        markOnboardingStep('rollD20')
+
         const entry = {
             id: crypto.randomUUID(),
             playerId: session.playerId,
             playerName: session.playerName,
             timestamp: Date.now(),
+            outcome: roll.outcome || describeRollOutcome(roll.total, roll.natural),
             ...roll,
         }
-        // Broadcast to all players via Supabase
+
         if (channelRef.current) {
-            broadcastEvent(channelRef.current, 'dice_roll', entry)
+            broadcastEvent(channelRef.current, 'dice_roll', entry).catch((err) => {
+                console.error('Dice roll broadcast failed:', err)
+            })
         }
-    }, [session])
+    }, [session.playerId, session.playerName, markOnboardingStep])
 
     const handleChatSend = useCallback((msg) => {
+        markOnboardingStep('sendChat')
+
         const entry = {
             id: crypto.randomUUID(),
             playerId: session.playerId,
@@ -234,36 +487,176 @@ export default function GameTable({ session, onLeave }) {
             timestamp: Date.now(),
             ...msg,
         }
-        // Broadcast to all players
+
         if (channelRef.current) {
-            broadcastEvent(channelRef.current, 'chat_message', entry)
+            broadcastEvent(channelRef.current, 'chat_message', entry).catch((err) => {
+                console.error('Chat broadcast failed:', err)
+            })
         }
-    }, [session])
+    }, [session.playerId, session.playerName, markOnboardingStep])
 
     const handleCopyCode = useCallback(() => {
         navigator.clipboard.writeText(session.code).then(() => {
             setCopied(true)
             setTimeout(() => setCopied(false), 2000)
+        }).catch((err) => {
+            console.error('Failed to copy session code:', err)
         })
     }, [session.code])
 
     const handleCombatUpdate = useCallback((state) => {
+        if (!isDM) return
+
         setCombatState(state)
-        if (channelRef.current) {
-            broadcastEvent(channelRef.current, 'combat_update', state)
-        }
-    }, [])
+        upsertSessionState(session.id, {
+            combatState: state,
+            npcState: npcsRef.current,
+        }).catch((err) => {
+            console.error('Failed to update combat state:', err)
+        })
+    }, [isDM, session.id])
 
     const handleNpcUpdate = useCallback((npcList) => {
+        if (!isDM) return
+
         setNpcs(npcList)
-        if (channelRef.current) {
-            broadcastEvent(channelRef.current, 'npc_update', npcList)
+        upsertSessionState(session.id, {
+            combatState: combatStateRef.current,
+            npcState: npcList,
+        }).catch((err) => {
+            console.error('Failed to update NPC state:', err)
+        })
+    }, [isDM, session.id])
+
+    const handleToggleBeginnerMode = useCallback(() => {
+        setBeginnerMode((prev) => {
+            const next = !prev
+            sessionStorage.setItem(beginnerModeStorageKey, next ? '1' : '0')
+            return next
+        })
+    }, [beginnerModeStorageKey])
+
+    const handleBeginnerAction = useCallback((action) => {
+        const configs = {
+            attack: {
+                formula: 'Saldır (d20+2)',
+                modifier: 2,
+                guidance: 'Yakınındaki tehdidi hedef al.',
+            },
+            power: {
+                formula: 'Yetenek (d20+3)',
+                modifier: 3,
+                guidance: 'Soy gücünü yaratıcı kullan.',
+            },
+            assist: {
+                formula: 'Yardım (d20+1)',
+                modifier: 1,
+                guidance: 'Bir ekip arkadaşına destek sağla.',
+            },
         }
-    }, [])
+
+        const selected = configs[action]
+        if (!selected) return
+
+        const result = rollD20(selected.modifier)
+        const critical = getCritical(result.natural)
+        const outcome = describeRollOutcome(result.total, result.natural)
+
+        handleDiceRoll({
+            ...result,
+            formula: selected.formula,
+            critical,
+            outcome,
+            isPrivate: false,
+        })
+
+        handleChatSend({
+            type: 'chat',
+            message: `${selected.guidance} (${outcome.short.toLowerCase()})`,
+        })
+    }, [handleDiceRoll, handleChatSend])
+
+    const handleStatCheck = useCallback((statKey, statValue) => {
+        const modifier = getModifier(statValue)
+        const result = rollD20(modifier)
+        const critical = getCritical(result.natural)
+        const outcome = describeRollOutcome(result.total, result.natural)
+        const statName = STAT_NAMES[statKey]?.name || statKey
+
+        handleDiceRoll({
+            ...result,
+            formula: `${statName} Kontrolü`,
+            critical,
+            outcome,
+            isPrivate: false,
+        })
+    }, [handleDiceRoll])
+
+    const handleTurnAdvanced = useCallback(() => {
+        markOnboardingStep('endTurn')
+    }, [markOnboardingStep])
+
+    const handleToggleMySheet = useCallback(() => {
+        setShowMySheet((prev) => {
+            const next = !prev
+            if (next) markOnboardingStep('openSheet')
+            return next
+        })
+    }, [markOnboardingStep])
+
+    const getSuggestedAction = useCallback(() => {
+        if (!myCharacter) {
+            return 'Önce karakterini tamamla ve sayfanı aç.'
+        }
+
+        if (combatState?.isActive) {
+            const current = combatState.initiative?.[combatState.turnIndex]
+            if (current?.id === session.playerId) {
+                return 'Sıra sende: Saldır veya Yardım aksiyonunu seç.'
+            }
+            return `Şu an sıra ${current?.name || 'başka bir oyuncuda'}. Hazırlığını yap ve kısa bir plan yaz.`
+        }
+
+        if (beginnerMode) {
+            return 'Başlangıç aksiyonlarından birine bas: Saldır, Yetenek veya Yardım.'
+        }
+
+        return 'd20 at, sonra ne yapmak istediğini bir cümleyle yaz.'
+    }, [myCharacter, combatState, session.playerId, beginnerMode])
+
+    const handleOnboardingAction = useCallback(() => {
+        if (!currentOnboardingStep) return
+
+        if (currentOnboardingStep === 'openSheet') {
+            setShowMySheet(true)
+            markOnboardingStep('openSheet')
+            return
+        }
+
+        if (currentOnboardingStep === 'rollD20') {
+            const result = rollD20(0)
+            handleDiceRoll({
+                ...result,
+                formula: 'Alıştırma d20',
+                critical: getCritical(result.natural),
+                outcome: describeRollOutcome(result.total, result.natural),
+                isPrivate: false,
+            })
+            return
+        }
+
+        if (currentOnboardingStep === 'sendChat') {
+            handleChatSend({ type: 'chat', message: 'Hazırım, başlayabiliriz!' })
+            return
+        }
+
+        if (currentOnboardingStep === 'endTurn') {
+            markOnboardingStep('endTurn')
+        }
+    }, [currentOnboardingStep, handleDiceRoll, handleChatSend, markOnboardingStep])
 
     // ─── Render ───────────────────────────────────────────────
 
-    // Character creator flow
     if (!myCharacter && !showCreator) {
         return (
             <div className="game-table-empty">
@@ -286,11 +679,15 @@ export default function GameTable({ session, onLeave }) {
         return <CharacterCreator onComplete={handleCharacterCreated} onBack={() => setShowCreator(false)} />
     }
 
-    const playerList = Object.values(players)
+    const playerList = Object.values(players).map((player) => ({
+        ...player,
+        isOnline: onlinePlayerIds.size > 0
+            ? onlinePlayerIds.has(player.id)
+            : player.isOnline,
+    }))
 
     return (
         <div className="game-table">
-            {/* Top Bar */}
             <header className="game-header">
                 <div className="header-left">
                     <button className="btn btn-ghost btn-sm" onClick={onLeave}>← Çıkış</button>
@@ -304,11 +701,14 @@ export default function GameTable({ session, onLeave }) {
                     </div>
                 </div>
                 <div className="header-center">
-                    <span className="player-count">👥 {playerList.filter(p => p.isOnline).length} oyuncu</span>
+                    <span className="player-count">👥 {playerList.filter((p) => p.isOnline).length} oyuncu</span>
                 </div>
                 <div className="header-right">
+                    <button className={`btn btn-ghost btn-sm ${beginnerMode ? 'active' : ''}`} onClick={handleToggleBeginnerMode}>
+                        🧭 Başlangıç
+                    </button>
                     {myCharacter && (
-                        <button className={`btn btn-ghost btn-sm ${showMySheet ? 'active' : ''}`} onClick={() => setShowMySheet(!showMySheet)}>
+                        <button className={`btn btn-ghost btn-sm ${showMySheet ? 'active' : ''}`} onClick={handleToggleMySheet}>
                             📜 Sayfam
                         </button>
                     )}
@@ -323,33 +723,50 @@ export default function GameTable({ session, onLeave }) {
                 </div>
             </header>
 
-            {/* Main Virtual Table */}
             <div className="game-content">
                 <main className="virtual-table">
-                    {/* Table Surface */}
                     <div className="table-surface">
                         <div className="table-ornament">⚡</div>
                         <div className="table-title">İda'nın Son Muhafızları</div>
+
+                        <div className="table-glossary">
+                            <span className="glossary-chip" title="Zırh (AC): Karakterin ne kadar zor vurulduğunu gösterir.">Zırh (AC)</span>
+                            <span className="glossary-chip" title="İnisiyatif: Savaşta kimin önce oynayacağını belirler.">İnisiyatif</span>
+                            <span className="glossary-chip" title="Kritik: d20 sonucunda 20 (çok iyi) veya 1 (çok kötü).">Kritik</span>
+                        </div>
 
                         {combatState?.isActive && (
                             <InitiativeTracker
                                 combatState={combatState}
                                 onUpdate={handleCombatUpdate}
+                                onTurnAdvance={handleTurnAdvanced}
+                                onPracticeTurnEnd={handleTurnAdvanced}
                                 isDM={isDM}
                                 players={players}
                             />
                         )}
 
-                        <DiceRoller
-                            onRoll={handleDiceRoll}
-                            history={diceHistory}
-                            isDM={isDM}
-                        />
+                        {beginnerMode ? (
+                            <div className="beginner-actions card animate-fade-in">
+                                <h4>🎯 Başlangıç Aksiyonları</h4>
+                                <p className="text-sm text-muted">Sadece birini seç. Sonucu sohbette göreceksin.</p>
+                                <div className="beginner-action-row">
+                                    <button className="btn btn-primary" onClick={() => handleBeginnerAction('attack')}>⚔️ Saldır</button>
+                                    <button className="btn" onClick={() => handleBeginnerAction('power')}>⚡ Yetenek</button>
+                                    <button className="btn btn-ghost" onClick={() => handleBeginnerAction('assist')}>🤝 Yardım</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <DiceRoller
+                                onRoll={handleDiceRoll}
+                                history={diceHistory}
+                                isDM={isDM}
+                            />
+                        )}
                     </div>
 
-                    {/* Player Cards Around the Table */}
                     <div className="table-seats">
-                        {playerList.map(player => (
+                        {playerList.map((player) => (
                             <PlayerCard
                                 key={player.id}
                                 player={player}
@@ -369,7 +786,6 @@ export default function GameTable({ session, onLeave }) {
                     </div>
                 </main>
 
-                {/* Chat Panel */}
                 {showChat && (
                     <aside className="panel-chat">
                         <ChatPanel
@@ -377,15 +793,15 @@ export default function GameTable({ session, onLeave }) {
                             onSend={handleChatSend}
                             isDM={isDM}
                             playerName={session.playerName}
+                            onNeedSuggestion={getSuggestedAction}
                         />
                     </aside>
                 )}
             </div>
 
-            {/* My Character Sheet (slide-over) */}
             {showMySheet && myCharacter && (
                 <div className="sheet-overlay" onClick={() => setShowMySheet(false)}>
-                    <div className="sheet-panel animate-fade-in" onClick={e => e.stopPropagation()}>
+                    <div className="sheet-panel animate-fade-in" onClick={(e) => e.stopPropagation()}>
                         <div className="sheet-panel-header">
                             <h3>📜 Karakter Sayfam</h3>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowMySheet(false)}>✕</button>
@@ -394,6 +810,7 @@ export default function GameTable({ session, onLeave }) {
                             <CharacterSheet
                                 character={myCharacter}
                                 onUpdate={handleCharacterUpdate}
+                                onStatCheck={handleStatCheck}
                                 bloodline={BLOODLINES[myCharacter.bloodline]}
                             />
                         </div>
@@ -401,7 +818,6 @@ export default function GameTable({ session, onLeave }) {
                 </div>
             )}
 
-            {/* DM Screen */}
             {showDMScreen && isDM && (
                 <DMScreen
                     onClose={() => setShowDMScreen(false)}
@@ -413,6 +829,34 @@ export default function GameTable({ session, onLeave }) {
                     onNpcUpdate={handleNpcUpdate}
                     players={players}
                 />
+            )}
+
+            {showOnboarding && !onboardingDone && (
+                <div className="onboarding-overlay">
+                    <div className="onboarding-card card animate-fade-in">
+                        <h3>👋 Hızlı Başlangıç</h3>
+                        <p className="text-sm text-muted">4 adımı tamamla, sonra oyun otomatik devam eder.</p>
+                        <div className="onboarding-list">
+                            <div className={`onboarding-item ${onboardingProgress.openSheet ? 'done' : ''}`}>1. Sayfamı aç</div>
+                            <div className={`onboarding-item ${onboardingProgress.rollD20 ? 'done' : ''}`}>2. d20 zarı at</div>
+                            <div className={`onboarding-item ${onboardingProgress.sendChat ? 'done' : ''}`}>3. Sohbete mesaj gönder</div>
+                            <div className={`onboarding-item ${onboardingProgress.endTurn ? 'done' : ''}`}>4. Turu bitir</div>
+                        </div>
+                        <button className="btn btn-primary" onClick={handleOnboardingAction}>
+                            {currentOnboardingStep === 'openSheet' && '📜 Sayfamı Aç'}
+                            {currentOnboardingStep === 'rollD20' && '🎲 d20 At'}
+                            {currentOnboardingStep === 'sendChat' && '💬 Mesaj Gönder'}
+                            {currentOnboardingStep === 'endTurn' && '✅ Turu Bitir'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {hpUndo && (
+                <div className="hp-undo-toast">
+                    <span>HP değişikliği uygulandı.</span>
+                    <button className="btn btn-sm btn-ghost" onClick={handleUndoLastHpChange}>↩ Geri Al</button>
+                </div>
             )}
         </div>
     )

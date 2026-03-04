@@ -5,6 +5,42 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+let pendingAuthPromise = null
+
+/**
+ * Ensure every browser client has an authenticated identity.
+ * Uses Supabase anonymous auth (must be enabled in project auth settings).
+ */
+export async function ensureAuthenticatedUser() {
+  if (pendingAuthPromise) return pendingAuthPromise
+
+  pendingAuthPromise = (async () => {
+    const { data: existing, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) throw sessionError
+
+    if (existing.session?.user) {
+      return existing.session.user
+    }
+
+    const { data, error } = await supabase.auth.signInAnonymously()
+    if (error) {
+      throw new Error(`Anon auth failed: ${error.message}`)
+    }
+
+    if (!data.session?.user) {
+      throw new Error('Anon auth failed: missing user session')
+    }
+
+    return data.session.user
+  })()
+
+  try {
+    return await pendingAuthPromise
+  } finally {
+    pendingAuthPromise = null
+  }
+}
+
 /**
  * Generate a short session code (6-char alphanumeric, no ambiguous chars)
  */
@@ -18,34 +54,44 @@ export function generateSessionCode() {
 }
 
 /**
- * Get or create anonymous player ID (persisted in sessionStorage)
+ * Create a new session in Supabase with retry on code collisions.
  */
-export function getOrCreatePlayerId() {
-  let id = sessionStorage.getItem('ida_player_id')
-  if (!id) {
-    id = crypto.randomUUID()
-    sessionStorage.setItem('ida_player_id', id)
+export async function createSession(name, dmUserId, maxAttempts = 6) {
+  let attempt = 0
+  let lastError = null
+
+  while (attempt < maxAttempts) {
+    const code = generateSessionCode()
+    const { data, error } = await supabase
+      .from('sessions')
+      .insert({
+        code,
+        name,
+        dm_user_id: dmUserId,
+        dm_player_id: dmUserId,
+      })
+      .select('*')
+      .single()
+
+    if (!error) return data
+
+    lastError = error
+    // Unique conflict -> regenerate code and retry.
+    if (error.code === '23505') {
+      attempt += 1
+      continue
+    }
+
+    throw error
   }
-  return id
-}
 
-// ─── Session CRUD ───────────────────────────────────────────
-
-/**
- * Create a new session in Supabase
- */
-export async function createSession(code, name, dmPlayerId) {
-  const { data, error } = await supabase
-    .from('sessions')
-    .insert({ code, name, dm_player_id: dmPlayerId })
-    .select()
-    .single()
-  if (error) throw error
-  return data
+  const collisionError = new Error('Could not allocate a unique session code.')
+  collisionError.cause = lastError
+  throw collisionError
 }
 
 /**
- * Find a session by its code
+ * Find an active session by its code.
  */
 export async function findSession(code) {
   const { data, error } = await supabase
@@ -53,47 +99,52 @@ export async function findSession(code) {
     .select('*')
     .eq('code', code.toUpperCase())
     .eq('is_active', true)
-    .single()
-  if (error) return null
-  return data
-}
+    .maybeSingle()
 
-// ─── Player CRUD ────────────────────────────────────────────
-
-/**
- * Add or update a player in a session
- */
-export async function upsertPlayer(sessionId, playerId, name, role, characterData = null) {
-  const { data, error } = await supabase
-    .from('players')
-    .upsert({
-      session_id: sessionId,
-      player_id: playerId,
-      name,
-      role,
-      character_data: characterData,
-      is_online: true,
-    }, { onConflict: 'session_id,player_id' })
-    .select()
-    .single()
   if (error) throw error
   return data
 }
 
 /**
- * Update player's character data
+ * Add or update a player in a session.
+ * Role is enforced by database trigger (dm if session dm_user_id, else player).
  */
-export async function updateCharacter(sessionId, playerId, characterData) {
+export async function upsertPlayer(sessionId, userId, name, characterData = null) {
+  const payload = {
+    session_id: sessionId,
+    user_id: userId,
+    player_id: userId,
+    name,
+    character_data: characterData,
+    is_online: true,
+  }
+
+  const { data, error } = await supabase
+    .from('players')
+    .upsert(payload, { onConflict: 'session_id,user_id' })
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Update player's character data.
+ * Caller can be player owner or session DM (enforced via RLS).
+ */
+export async function updateCharacter(sessionId, userId, characterData) {
   const { error } = await supabase
     .from('players')
     .update({ character_data: characterData })
     .eq('session_id', sessionId)
-    .eq('player_id', playerId)
+    .eq('user_id', userId)
+
   if (error) throw error
 }
 
 /**
- * Get all players in a session
+ * Get all players in a session.
  */
 export async function getSessionPlayers(sessionId) {
   const { data, error } = await supabase
@@ -101,25 +152,63 @@ export async function getSessionPlayers(sessionId) {
     .select('*')
     .eq('session_id', sessionId)
     .order('joined_at', { ascending: true })
+
   if (error) throw error
   return data || []
 }
 
 /**
- * Set player online/offline
+ * Set player online/offline.
  */
-export async function setPlayerOnline(sessionId, playerId, isOnline) {
-  await supabase
+export async function setPlayerOnline(sessionId, userId, isOnline) {
+  const { error } = await supabase
     .from('players')
     .update({ is_online: isOnline })
     .eq('session_id', sessionId)
-    .eq('player_id', playerId)
+    .eq('user_id', userId)
+
+  if (error) throw error
 }
 
-// ─── Realtime Channels ──────────────────────────────────────
+/**
+ * DM-controlled shared state (combat + NPC lists).
+ */
+export async function getSessionState(sessionId) {
+  const { data, error } = await supabase
+    .from('session_state')
+    .select('*')
+    .eq('session_id', sessionId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export async function upsertSessionState(sessionId, updates) {
+  const payload = {
+    session_id: sessionId,
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'combatState')) {
+    payload.combat_state = updates.combatState
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'npcState')) {
+    payload.npc_state = updates.npcState
+  }
+
+  const { data, error } = await supabase
+    .from('session_state')
+    .upsert(payload, { onConflict: 'session_id' })
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
 
 /**
- * Subscribe to real-time player changes in a session
+ * Subscribe to real-time player changes in a session.
  */
 export function subscribeToPlayers(sessionId, onUpdate) {
   return supabase
@@ -129,14 +218,27 @@ export function subscribeToPlayers(sessionId, onUpdate) {
       schema: 'public',
       table: 'players',
       filter: `session_id=eq.${sessionId}`,
-    }, (payload) => {
-      onUpdate(payload)
-    })
+    }, onUpdate)
     .subscribe()
 }
 
 /**
- * Create a broadcast channel for ephemeral events (dice, chat, combat)
+ * Subscribe to DM-controlled session state changes.
+ */
+export function subscribeToSessionState(sessionId, onUpdate) {
+  return supabase
+    .channel(`session_state:${sessionId}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'session_state',
+      filter: `session_id=eq.${sessionId}`,
+    }, onUpdate)
+    .subscribe()
+}
+
+/**
+ * Create a broadcast channel for ephemeral events (dice, chat, presence).
  */
 export function createGameChannel(sessionCode) {
   return supabase.channel(`game:${sessionCode}`, {
@@ -145,7 +247,7 @@ export function createGameChannel(sessionCode) {
 }
 
 /**
- * Subscribe to broadcast events on a game channel
+ * Subscribe to broadcast/presence events on a game channel.
  */
 export function subscribeGameEvents(channel, handlers) {
   let ch = channel
@@ -162,18 +264,6 @@ export function subscribeGameEvents(channel, handlers) {
     })
   }
 
-  if (handlers.onCombat) {
-    ch = ch.on('broadcast', { event: 'combat_update' }, ({ payload }) => {
-      handlers.onCombat(payload)
-    })
-  }
-
-  if (handlers.onNpc) {
-    ch = ch.on('broadcast', { event: 'npc_update' }, ({ payload }) => {
-      handlers.onNpc(payload)
-    })
-  }
-
   if (handlers.onPresence) {
     ch = ch.on('presence', { event: 'sync' }, () => {
       handlers.onPresence(channel.presenceState())
@@ -181,6 +271,8 @@ export function subscribeGameEvents(channel, handlers) {
   }
 
   return ch.subscribe(async (status) => {
+    if (handlers.onStatus) handlers.onStatus(status)
+
     if (status === 'SUBSCRIBED' && handlers.onPresence) {
       await channel.track({ player_id: handlers.playerId, name: handlers.playerName })
     }
@@ -188,8 +280,14 @@ export function subscribeGameEvents(channel, handlers) {
 }
 
 /**
- * Send a broadcast event
+ * Send a broadcast event and return delivery status.
  */
-export function broadcastEvent(channel, event, payload) {
-  channel.send({ type: 'broadcast', event, payload })
+export async function broadcastEvent(channel, event, payload) {
+  const result = await channel.send({ type: 'broadcast', event, payload })
+
+  if (result === 'error' || result === 'timed out') {
+    throw new Error(`Broadcast failed (${result}) for event: ${event}`)
+  }
+
+  return result
 }
